@@ -1,0 +1,10 @@
+appId: com.krishshah.nfcapp
+---
+- launchApp
+- tapOn: "Cards"
+- tapOn: "Events"
+- tapOn: "Start event"
+- tapOn: "Event name"
+- inputText: "Maestro Expo"
+- tapOn: "Start event"
+- assertVisible: "Maestro Expo  · Active"

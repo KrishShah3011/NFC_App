@@ -1,0 +1,18 @@
+appId: com.krishshah.nfcapp
+---
+- launchApp:
+    clearState: true
+- tapOn: "I am 18 or older and agree to the Privacy Policy and Terms"
+- tapOn: "Mobile number"
+- eraseText
+- inputText: "+919999999999"
+- tapOn: "Send code"
+- tapOn: "6-digit code"
+- inputText: "123456"
+- tapOn: "Verify"
+- assertVisible: "Create your card"
+- tapOn: "Name *"
+- inputText: "Maestro Tester"
+- tapOn: "Save"
+- tapOn: "Later"
+- assertVisible: "Write NFC tag"

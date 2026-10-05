@@ -1,0 +1,12 @@
+appId: com.krishshah.nfcapp
+---
+- launchApp
+- openLink: "nfcapp://p/${SEED_SLUG}"
+# External links ask for one tap before saving (drive-by protection).
+- tapOn: "Save card"
+- assertVisible: "Saved ${SEED_NAME}"
+- tapOn: "Note"
+- inputText: "Met at maestro expo"
+- tapOn: "Done"
+- tapOn: "Cards"
+- assertVisible: "${SEED_NAME}"

@@ -1,0 +1,9 @@
+appId: com.krishshah.nfcapp
+---
+- launchApp
+- tapOn: "Cards"
+- tapOn: "${SEED_NAME}"
+- scrollUntilVisible:
+    element: "Tomorrow"
+- tapOn: "Tomorrow"
+- assertVisible: "Due .*"

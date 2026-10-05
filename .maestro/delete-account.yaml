@@ -1,0 +1,9 @@
+appId: com.krishshah.nfcapp
+---
+- launchApp
+- tapOn: "Me"
+- scrollUntilVisible:
+    element: "Delete account"
+- tapOn: "Delete account"
+- tapOn: "Delete everything"
+- assertVisible: "Never lose a visiting card"

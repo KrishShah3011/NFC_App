@@ -1,0 +1,7 @@
+appId: com.krishshah.nfcapp
+---
+- launchApp
+- tapOn: "Cards"
+- tapOn: "Search cards"
+- inputText: "maestro expo"
+- assertVisible: "${SEED_NAME}"

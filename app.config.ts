@@ -30,6 +30,8 @@ const config: ExpoConfig = {
   android: {
     package: BUNDLE_ID,
     googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
+    // Camera/picker libs pull in RECORD_AUDIO; we never record audio, so keep it out of the manifest.
+    blockedPermissions: ['android.permission.RECORD_AUDIO'],
     adaptiveIcon: {
       backgroundColor: '#E6F4FE',
       foregroundImage: './assets/android-icon-foreground.png',
