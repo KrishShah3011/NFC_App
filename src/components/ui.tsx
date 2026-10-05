@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View, useColorScheme, type TextInputProps, type TextStyle } from 'react-native';
 
 export function useTheme() {
@@ -13,6 +13,16 @@ export function useTheme() {
     accent: dark ? '#58a6ff' : '#1f6feb',
     danger: '#d1242f',
   };
+}
+
+/** Current time, refreshed every `ms`: keeps render pure and lets "active event" banners expire on their own. */
+export function useNow(ms = 60000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(t);
+  }, [ms]);
+  return now;
 }
 
 export const splitList = (s: string) => s.split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
