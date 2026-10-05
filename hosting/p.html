@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Contact card</title>
+  <style>
+    :root { color-scheme: light dark; --fg: #111; --bg: #fff; --muted: #666; --accent: #1f6feb; }
+    @media (prefers-color-scheme: dark) { :root { --fg: #eee; --bg: #111; --muted: #aaa; --accent: #58a6ff; } }
+    body { margin: 0; font: 17px/1.5 system-ui, sans-serif; color: var(--fg); background: var(--bg); }
+    main { max-width: 420px; margin: 0 auto; padding: 32px 20px; text-align: center; }
+    .photo { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; }
+    h1 { font-size: 1.6rem; margin: 12px 0 4px; }
+    .sub { color: var(--muted); margin: 0 0 16px; }
+    ul { list-style: none; padding: 0; margin: 0 0 24px; }
+    li { padding: 6px 0; word-break: break-word; }
+    a { color: var(--accent); }
+    button, .btn { display: block; width: 100%; box-sizing: border-box; padding: 14px; margin: 10px 0; border-radius: 12px;
+      border: 0; font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; background: var(--accent); color: #fff; }
+    .btn.secondary { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+    .link { display: inline-block; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <main id="app" aria-live="polite"><p>Loading…</p></main>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
+    import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js';
+    import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+    import { getAnalytics, logEvent } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js';
+    import { toVCard } from '/vcard.js';
+
+    // Founder inputs — docs/SETUP.md
+    const RECAPTCHA_SITE_KEY = 'REPLACE_WITH_RECAPTCHA_ENTERPRISE_SITE_KEY';
+    const APP_STORE_URL = 'https://apps.apple.com/app/idREPLACE_WITH_APP_STORE_ID';
+    const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.krishshah.nfcapp';
+    const SCHEME = 'nfcapp';
+
+    const el = document.getElementById('app');
+    const slug = (location.pathname.match(/^\/p\/([A-Za-z0-9]{10})\/?$/) || [])[1];
+    const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const safeUrl = (u) => (/^https?:\/\//i.test(u) ? u : `https://${u}`);
+    const gone = () => { el.innerHTML = '<h1>This card is no longer shared.</h1>'; };
+
+    async function main() {
+      if (!slug) return gone();
+      const app = initializeApp(await (await fetch('/__/firebase/init.json')).json());
+      if (!RECAPTCHA_SITE_KEY.startsWith('REPLACE')) {
+        initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
+      }
+      let analytics = null;
+      try { analytics = getAnalytics(app); } catch { /* analytics optional */ }
+      const log = (name) => analytics && logEvent(analytics, name);
+      const snap = await getDoc(doc(getFirestore(app), 'profiles', slug));
+      if (!snap.exists()) return gone();
+      log('fallback_viewed');
+      render(snap.data(), log);
+    }
+
+    function render(p, log) {
+      const store = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? APP_STORE_URL : PLAY_STORE_URL;
+      const photo = /^https:\/\//.test(p.photoUrl || '') ? `<img class="photo" src="${h(p.photoUrl)}" alt="">` : '';
+      el.innerHTML = `
+        ${photo}
+        <h1>${h(p.name)}</h1>
+        <p class="sub">${h([p.title, p.company].filter(Boolean).join(' · '))}</p>
+        <ul>
+          ${(p.phones || []).map((x) => `<li><a href="tel:${h(x)}">${h(x)}</a></li>`).join('')}
+          ${(p.emails || []).map((x) => `<li><a href="mailto:${h(x)}">${h(x)}</a></li>`).join('')}
+          ${p.website ? `<li><a href="${h(safeUrl(p.website))}" rel="noopener nofollow">${h(p.website)}</a></li>` : ''}
+          ${p.address ? `<li>${h(p.address)}</li>` : ''}
+        </ul>
+        <button id="save" type="button">Save contact</button>
+        <a class="btn secondary" id="get" href="${h(store)}">Get the app</a>
+        <a class="link" href="${SCHEME}://p/${slug}">Open in app</a>`;
+      document.getElementById('save').onclick = () => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([toVCard(p)], { type: 'text/vcard' }));
+        a.download = `${(p.name || 'contact').replace(/[^\w ]+/g, '').trim() || 'contact'}.vcf`;
+        a.click();
+      };
+      document.getElementById('get').onclick = () => log('fallback_install_clicked');
+    }
+
+    main().catch(() => { el.innerHTML = '<h1>Could not load this card.</h1><p>Check your connection and try again.</p>'; });
+  </script>
+</body>
+</html>
