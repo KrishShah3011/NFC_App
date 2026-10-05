@@ -1,11 +1,15 @@
 // @ts-check
 // Shared by the app (src/lib) and the no-app fallback page (hosting/p.html). Keep it dependency-free ES.
 
+// Any line break (CRLF, CR or LF) becomes a literal \n so a value can never start a new vCard property;
+// other control characters are dropped.
 /** @param {unknown} s */
 const esc = (s) =>
   String(s ?? '')
     .replace(/\\/g, '\\\\')
-    .replace(/\r?\n/g, '\\n')
+    .replace(/\r\n|\r|\n/g, '\\n')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
     .replace(/([,;])/g, '\\$1');
 
 /**

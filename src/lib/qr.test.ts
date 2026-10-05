@@ -102,3 +102,21 @@ test('Indian phone formats normalise to E.164; junk is rejected', () => {
   expect(normalizePhone('12345')).toBeNull();
   expect(normalizePhone('400001')).toBeNull();
 });
+
+test('hostile QR payloads never throw', () => {
+  expect(() => parseQr('https://www.linkedin.com/in/%E0%A4%A/', D)).not.toThrow();
+  expect(parseQr('https://www.linkedin.com/in/%E0%A4%A/', D)).toEqual({
+    kind: 'contact',
+    fields: expect.objectContaining({ name: '%E0%A4%A' }),
+  });
+  expect(() => parseQr('MECARD:N:;;', D)).not.toThrow();
+  expect(() => parseQr('BEGIN:VCARD\n:\n;;;\nEND:VCARD', D)).not.toThrow();
+});
+
+test('toVCard neutralises CR/LF injection and control characters', () => {
+  const v = toVCard({ name: 'Eve\rTEL:+10000000000', company: 'X\r\nEMAIL:evil@x.com', title: 'a\u0000b' });
+  const lines = v.split('\r\n');
+  expect(lines.filter((l) => l.startsWith('TEL') || l.startsWith('EMAIL'))).toEqual([]);
+  expect(v).not.toMatch(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/);
+  expect(parseVCard(v).name).toBe('Eve\nTEL:+10000000000');
+});

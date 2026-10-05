@@ -76,15 +76,32 @@ function parseMeCard(body: string): Fields {
   return f;
 }
 
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s; // malformed %-escape from an untrusted QR: keep it raw rather than crash the scanner
+  }
+}
+
 function linkedInName(slug: string): string {
-  const words = decodeURIComponent(slug).split('-').filter(Boolean);
+  const words = safeDecode(slug).split('-').filter(Boolean);
   if (words.length > 1 && /\d/.test(words[words.length - 1])) words.pop();
   return words.map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
 }
 
 const useful = (f: Fields) => (f.name || f.phones.length || f.emails.length ? f : null);
 
+/** Never throws: QR payloads are untrusted, and a throw here would crash the scanner. */
 export function parseQr(data: string, domain = LINK_DOMAIN): QrResult {
+  try {
+    return parse(data, domain);
+  } catch {
+    return null;
+  }
+}
+
+function parse(data: string, domain: string): QrResult {
   const s = data.trim();
   const slug = slugFromUrl(s, domain);
   if (slug) return { kind: 'profile', slug };
