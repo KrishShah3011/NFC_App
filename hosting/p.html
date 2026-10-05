@@ -45,7 +45,8 @@
 
     async function main() {
       if (!slug) return gone();
-      const app = initializeApp(await (await fetch('/__/firebase/init.json')).json());
+      const config = await (await fetch('/__/firebase/init.json')).json();
+      const app = initializeApp(config);
       if (!RECAPTCHA_SITE_KEY.startsWith('REPLACE')) {
         initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
       }
@@ -55,13 +56,14 @@
       const snap = await getDoc(doc(getFirestore(app), 'profiles', slug));
       if (!snap.exists()) return gone();
       log('fallback_viewed');
-      render(snap.data(), log);
+      render(snap.data(), log, config.storageBucket);
     }
 
-    function render(p, log) {
+    function render(p, log, bucket) {
       const store = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? APP_STORE_URL : PLAY_STORE_URL;
-      // Photos only from our Storage: no third-party tracking pixels.
-      const photo = /^https:\/\/firebasestorage\.googleapis\.com\//.test(p.photoUrl || '') ? `<img class="photo" src="${h(p.photoUrl)}" alt="">` : '';
+      // Never use the stored URL (another user wrote it): rebuild it from our own bucket + slug.
+      const src = `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o/profiles%2F${slug}.jpg?alt=media&v=${Number(p.updatedAt) || 0}`;
+      const photo = p.photoUrl && bucket ? `<img class="photo" src="${h(src)}" alt="">` : '';
       el.innerHTML = `
         ${photo}
         <h1>${h(p.name)}</h1>

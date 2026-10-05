@@ -12,7 +12,7 @@ import {
   updateDoc,
 } from '@react-native-firebase/firestore';
 import { httpsCallable } from '@react-native-firebase/functions';
-import { auth, db, functions } from './firebase';
+import { auth, BUCKET, db, functions } from './firebase';
 import type { Card, Event, Fields, Profile, Socials } from './types';
 
 const uid = () => {
@@ -102,24 +102,27 @@ export function watchUserDoc(cb: (d: { profileSlug?: string; consentAt?: number 
 }
 
 export function watchProfile(slug: string, cb: (p: Profile | null) => void) {
-  return onSnapshot(doc(db, 'profiles', slug), (s) => cb(s.exists() ? sanitizeProfile(s.data()) : null));
+  return onSnapshot(doc(db, 'profiles', slug), (s) => cb(s.exists() ? sanitizeProfile(s.data(), slug) : null));
 }
 
-const STORAGE_URL = /^https:\/\/firebasestorage\.googleapis\.com\//;
+/** Public URL of a profile photo in OUR bucket (public-read rule, so no token needed). */
+export const profilePhotoUrl = (slug: string, version: number, bucket = BUCKET) =>
+  `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o/profiles%2F${slug}.jpg?alt=media&v=${version}`;
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
 const strs = (v: unknown, max: number) =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 5).map((x) => x.slice(0, max)) : [];
 
-/** Profiles are written by other users: keep only well-typed, bounded fields; photos only from our
- *  Storage (no tracking pixels on third-party hosts); websites only http(s). null = unusable. */
-export function sanitizeProfile(raw: unknown): Profile | null {
+/** Profiles are written by other users: keep only well-typed, bounded fields; websites only http(s).
+ *  The stored photoUrl is only a "has photo" flag: the URL is rebuilt from our own bucket + slug,
+ *  so another user can't point us at a tracking pixel (even one in their own Firebase bucket). */
+export function sanitizeProfile(raw: unknown, slug: string, bucket = BUCKET): Profile | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
   const name = str(r.name, 100);
   if (!name.trim()) return null;
   const site = str(r.website, 200).trim();
-  const photo = str(r.photoUrl, 1000);
   const so = (r.socials && typeof r.socials === 'object' ? r.socials : {}) as Record<string, unknown>;
+  const updatedAt = typeof r.updatedAt === 'number' ? r.updatedAt : 0;
   const social = (k: string) => str(so[k], 200) || undefined;
   return {
     ownerUid: str(r.ownerUid, 128),
@@ -131,8 +134,8 @@ export function sanitizeProfile(raw: unknown): Profile | null {
     website: /^https?:\/\//i.test(site) ? site : /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(site) ? `https://${site}` : '',
     address: str(r.address, 300),
     socials: { linkedin: social('linkedin'), x: social('x'), instagram: social('instagram'), whatsapp: social('whatsapp') },
-    photoUrl: STORAGE_URL.test(photo) ? photo : '',
-    updatedAt: typeof r.updatedAt === 'number' ? r.updatedAt : 0,
+    photoUrl: r.photoUrl && bucket ? profilePhotoUrl(slug, updatedAt, bucket) : '',
+    updatedAt,
   };
 }
 
@@ -157,7 +160,7 @@ export async function fetchProfile(slug: string, timeoutMs = 3000): Promise<Prof
     getDoc(doc(db, 'profiles', slug)),
     new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs)),
   ]);
-  return snap.exists() ? sanitizeProfile(snap.data()) : null;
+  return snap.exists() ? sanitizeProfile(snap.data(), slug) : null;
 }
 
 /** Live update + pending resolution for one card received from an app user (spec §7.9).

@@ -7,6 +7,7 @@ import { Button, Field, Screen, splitList, T } from '@/components/ui';
 import { captureCard } from '@/lib/capture';
 import { pickFields, updateCard } from '@/lib/data';
 import { parseCardText } from '@/lib/ocr';
+import { isInside } from '@/lib/safeUri';
 import { normalizePhone } from '@/lib/qr';
 import { useData } from '@/lib/store';
 import { emptyFields, type Fields } from '@/lib/types';
@@ -17,7 +18,7 @@ export default function Review() {
   const id = params.id;
   // Any deep link can reach this route; only accept photos our camera/picker wrote to the app cache,
   // never arbitrary files (e.g. nfcapp://review?uri=file:///…/local.json).
-  const uri = params.uri?.startsWith(Paths.cache.uri) ? params.uri : undefined;
+  const uri = isInside(params.uri, Paths.cache.uri) ? params.uri : undefined;
   const { cards, events } = useData();
   const existing = id ? cards.find((c) => c.id === id) : undefined;
   const [f, setF] = useState<Fields>(existing ? pickFields(existing) : emptyFields());

@@ -19,6 +19,7 @@ export const auth = getAuth(app);
 // Unlimited cache: every card stays on device; local search depends on it (spec §9).
 export const db = initializeFirestore(app, { persistence: true, cacheSizeBytes: CACHE_SIZE_UNLIMITED, ignoreUndefinedProperties: true });
 export const storage = getStorage(app);
+export const BUCKET = app.options.storageBucket ?? '';
 export const functions = getFunctions(app, 'asia-south1');
 
 const analytics = getAnalytics(app);

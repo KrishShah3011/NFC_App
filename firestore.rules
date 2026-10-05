@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function str(v, max) { return v is string && v.size() <= max; }
-    function validProfile(d) {
+    function validProfile(d, slug) {
       return d.keys().hasOnly(['ownerUid', 'name', 'title', 'company', 'phones', 'emails', 'website', 'address', 'socials', 'photoUrl', 'updatedAt'])
         && d.ownerUid == request.auth.uid
         && d.name is string && d.name.size() > 0 && d.name.size() <= 100
@@ -13,7 +13,7 @@ service cloud.firestore {
         && d.socials is map && d.socials.size() <= 4
         && d.updatedAt is number
         // No tracking pixels: photos only from our own Storage. Links with a scheme must be http(s).
-        && (d.photoUrl == '' || d.photoUrl.matches('^https://firebasestorage[.]googleapis[.]com/.*'))
+        && (d.photoUrl == '' || d.photoUrl.matches('^https://firebasestorage[.]googleapis[.]com/v0/b/[^/?#]+/o/profiles%2F' + slug + '[.]jpg([?].*)?$'))
         && (!d.website.matches('^[A-Za-z][A-Za-z0-9+.-]*:.*') || d.website.matches('^https?://.*'));
     }
 
@@ -21,8 +21,8 @@ service cloud.firestore {
     match /profiles/{slug} {
       allow get: if true;
       allow list: if false;
-      allow create: if signedIn() && slug.matches('^[A-Za-z0-9]{10}$') && validProfile(request.resource.data);
-      allow update: if signedIn() && resource.data.ownerUid == request.auth.uid && validProfile(request.resource.data);
+      allow create: if signedIn() && slug.matches('^[A-Za-z0-9]{10}$') && validProfile(request.resource.data, slug);
+      allow update: if signedIn() && resource.data.ownerUid == request.auth.uid && validProfile(request.resource.data, slug);
       allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
     }
 

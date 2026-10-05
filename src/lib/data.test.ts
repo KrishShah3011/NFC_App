@@ -2,7 +2,7 @@
 import { setDoc } from '@react-native-firebase/firestore';
 import { addCard, fetchProfile, newSlug, saveMyProfile } from './data';
 
-jest.mock('./firebase', () => ({ auth: { currentUser: { uid: 'u1' } }, db: {}, functions: {} }));
+jest.mock('./firebase', () => ({ auth: { currentUser: { uid: 'u1' } }, db: {}, functions: {}, BUCKET: 'demo-nfc.appspot.com' }));
 jest.mock('@react-native-firebase/functions', () => ({ httpsCallable: jest.fn() }));
 jest.mock('@react-native-firebase/firestore', () => {
   const never = () => new Promise(() => {}); // offline: server ack never arrives
@@ -61,21 +61,24 @@ describe('sanitizeProfile (profiles are written by other users)', () => {
   };
 
   test('keeps a well-formed profile; bare website gets https', () => {
-    const p = sanitizeProfile(good)!;
+    const p = sanitizeProfile(good, 'Ab3dE5gH7j')!;
     expect(p.name).toBe('Asha Rao');
     expect(p.website).toBe('https://acme.in');
-    expect(p.photoUrl).toBe(good.photoUrl);
+    expect(p.photoUrl).toBe('https://firebasestorage.googleapis.com/v0/b/demo-nfc.appspot.com/o/profiles%2FAb3dE5gH7j.jpg?alt=media&v=5');
   });
 
-  test('drops tracking photos, non-http links and junk types', () => {
-    const p = sanitizeProfile({
-      ...good,
-      photoUrl: 'https://evil.example/pixel.gif',
-      website: 'javascript:alert(1)',
-      phones: ['+1 555', 42, '<script>'],
-      emails: ['not-an-email', 'ok@x.in'],
-      title: { x: 1 },
-    })!;
+  test('drops non-http links and junk types; no photo flag means no photo', () => {
+    const p = sanitizeProfile(
+      {
+        ...good,
+        photoUrl: '',
+        website: 'javascript:alert(1)',
+        phones: ['+1 555', 42, '<script>'],
+        emails: ['not-an-email', 'ok@x.in'],
+        title: { x: 1 },
+      },
+      'Ab3dE5gH7j',
+    )!;
     expect(p.photoUrl).toBe('');
     expect(p.website).toBe('');
     expect(p.phones).toEqual(['+1 555']);
@@ -83,10 +86,17 @@ describe('sanitizeProfile (profiles are written by other users)', () => {
     expect(p.title).toBe('');
   });
 
+  test('photo URL is always rebuilt from our bucket, never taken from the profile', () => {
+    for (const evil of ['https://evil.example/pixel.gif', 'https://firebasestorage.googleapis.com/v0/b/attacker-bucket/o/pixel.gif']) {
+      const p = sanitizeProfile({ ...good, photoUrl: evil }, 'Ab3dE5gH7j')!;
+      expect(p.photoUrl.startsWith('https://firebasestorage.googleapis.com/v0/b/demo-nfc.appspot.com/o/profiles%2FAb3dE5gH7j.jpg')).toBe(true);
+    }
+  });
+
   test('rejects nameless or non-object data and caps sizes', () => {
-    expect(sanitizeProfile(null)).toBeNull();
-    expect(sanitizeProfile({ ...good, name: '   ' })).toBeNull();
-    const p = sanitizeProfile({ ...good, name: 'x'.repeat(500), phones: Array(20).fill('123') })!;
+    expect(sanitizeProfile(null, 'Ab3dE5gH7j')).toBeNull();
+    expect(sanitizeProfile({ ...good, name: '   ' }, 'Ab3dE5gH7j')).toBeNull();
+    const p = sanitizeProfile({ ...good, name: 'x'.repeat(500), phones: Array(20).fill('123') }, 'Ab3dE5gH7j')!;
     expect(p.name).toHaveLength(100);
     expect(p.phones).toHaveLength(5);
   });

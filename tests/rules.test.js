@@ -69,7 +69,13 @@ test('profile links: photo only from Firebase Storage, website only http(s) or b
   await assertFails(setDoc(doc(db('alice'), 'profiles', SLUG), profile('alice', { website: 'javascript:alert(1)' })));
   await assertSucceeds(setDoc(doc(db('alice'), 'profiles', SLUG), profile('alice', { website: 'acme.in' })));
   await assertSucceeds(
-    setDoc(doc(db('alice'), 'profiles', SLUG), profile('alice', { website: 'https://acme.in', photoUrl: 'https://firebasestorage.googleapis.com/v0/b/x/o/p.jpg' })),
+    setDoc(
+      doc(db('alice'), 'profiles', SLUG),
+      profile('alice', { website: 'https://acme.in', photoUrl: `https://firebasestorage.googleapis.com/v0/b/x/o/profiles%2F${SLUG}.jpg?alt=media&token=t` }),
+    ),
+  );
+  await assertFails(
+    setDoc(doc(db('alice'), 'profiles', SLUG), profile('alice', { photoUrl: 'https://firebasestorage.googleapis.com/v0/b/x/o/pixel.gif' })),
   );
 });
 
