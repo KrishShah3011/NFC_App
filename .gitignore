@@ -9,3 +9,4 @@ google-services.json
 GoogleService-Info.plist
 *.log
 functions/node_modules/
+.serena/
