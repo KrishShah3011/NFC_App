@@ -43,3 +43,51 @@ test('newSlug uses rejection sampling and yields 10 base62 chars', () => {
 test('fetchProfile times out instead of hanging offline', async () => {
   await expect(fetchProfile('Ab3dE5gH7j', 20)).rejects.toThrow('timeout');
 });
+
+describe('sanitizeProfile (profiles are written by other users)', () => {
+  const { sanitizeProfile } = jest.requireActual('./data') as typeof import('./data');
+  const good = {
+    ownerUid: 'u2',
+    name: 'Asha Rao',
+    title: 'CEO',
+    company: 'Acme',
+    phones: ['+91 98765 43210'],
+    emails: ['asha@acme.in'],
+    website: 'acme.in',
+    address: 'Pune',
+    socials: { linkedin: 'asha' },
+    photoUrl: 'https://firebasestorage.googleapis.com/v0/b/x/o/profiles%2FAb3dE5gH7j.jpg?alt=media',
+    updatedAt: 5,
+  };
+
+  test('keeps a well-formed profile; bare website gets https', () => {
+    const p = sanitizeProfile(good)!;
+    expect(p.name).toBe('Asha Rao');
+    expect(p.website).toBe('https://acme.in');
+    expect(p.photoUrl).toBe(good.photoUrl);
+  });
+
+  test('drops tracking photos, non-http links and junk types', () => {
+    const p = sanitizeProfile({
+      ...good,
+      photoUrl: 'https://evil.example/pixel.gif',
+      website: 'javascript:alert(1)',
+      phones: ['+1 555', 42, '<script>'],
+      emails: ['not-an-email', 'ok@x.in'],
+      title: { x: 1 },
+    })!;
+    expect(p.photoUrl).toBe('');
+    expect(p.website).toBe('');
+    expect(p.phones).toEqual(['+1 555']);
+    expect(p.emails).toEqual(['ok@x.in']);
+    expect(p.title).toBe('');
+  });
+
+  test('rejects nameless or non-object data and caps sizes', () => {
+    expect(sanitizeProfile(null)).toBeNull();
+    expect(sanitizeProfile({ ...good, name: '   ' })).toBeNull();
+    const p = sanitizeProfile({ ...good, name: 'x'.repeat(500), phones: Array(20).fill('123') })!;
+    expect(p.name).toHaveLength(100);
+    expect(p.phones).toHaveLength(5);
+  });
+});

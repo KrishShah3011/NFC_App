@@ -4,7 +4,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Chip, Screen, T, useNow } from '@/components/ui';
-import { captureCard } from '@/lib/capture';
+import { captureCard, trustScan } from '@/lib/capture';
 import { parseQr } from '@/lib/qr';
 import { findDuplicate } from '@/lib/search';
 import { useData } from '@/lib/store';
@@ -40,7 +40,10 @@ export default function Scan() {
     busy.current = true;
     const r = parseQr(data);
     if (!r) flash('Not a contact QR code');
-    else if (r.kind === 'profile') router.push(`/p/${r.slug}`);
+    else if (r.kind === 'profile') {
+      trustScan(r.slug);
+      router.push(`/p/${r.slug}`);
+    }
     else {
       const dup = findDuplicate(cards, { phones: r.fields.phones, emails: r.fields.emails });
       if (dup) router.push({ pathname: '/card/[id]', params: { id: dup.id, already: '1' } });

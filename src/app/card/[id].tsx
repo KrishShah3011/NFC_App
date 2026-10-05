@@ -48,7 +48,9 @@ export default function CardDetail() {
 
   const event = events.find((e) => e.id === c.eventId);
   const linked = !!local.inbox.linked[c.id];
-  const phone = c.phones[0];
+  // Card fields come from OCR, QR codes and other users: build dial/mail URLs from validated parts only.
+  const phone = c.phones.map((p) => p.replace(/[^\d+]/g, '')).find((p) => /^\+?\d{6,15}$/.test(p));
+  const email = c.emails.find((e) => /^[^\s@?&#:/]+@[^\s@?&#:/]+\.[^\s@?&#:/]+$/.test(e));
   const setFollowUp = async (dueAt: number) => {
     updateCard(c.id, { followUp: { dueAt, note: fuNote.trim(), done: false } });
     if (!(await ensureNotificationPermission())) {
@@ -97,7 +99,7 @@ export default function CardDetail() {
       <ScrollView horizontal>
         {phone && <Chip label="Call" onPress={() => Linking.openURL(`tel:${phone}`)} />}
         {phone && <Chip label="WhatsApp" onPress={() => Linking.openURL(`https://wa.me/${phone.replace(/\D/g, '')}`)} />}
-        {c.emails[0] && <Chip label="Email" onPress={() => Linking.openURL(`mailto:${c.emails[0]}`)} />}
+        {email && <Chip label="Email" onPress={() => Linking.openURL(`mailto:${email}`)} />}
         <Chip label={linked ? 'Update phone contact' : 'Save to Contacts'} onPress={phoneContact} />
       </ScrollView>
 

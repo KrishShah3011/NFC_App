@@ -11,7 +11,10 @@ service cloud.firestore {
         && d.phones is list && d.phones.size() <= 5
         && d.emails is list && d.emails.size() <= 5
         && d.socials is map && d.socials.size() <= 4
-        && d.updatedAt is number;
+        && d.updatedAt is number
+        // No tracking pixels: photos only from our own Storage. Links with a scheme must be http(s).
+        && (d.photoUrl == '' || d.photoUrl.matches('^https://firebasestorage[.]googleapis[.]com/.*'))
+        && (!d.website.matches('^[A-Za-z][A-Za-z0-9+.-]*:.*') || d.website.matches('^https?://.*'));
     }
 
     // Public card: fetchable by its unguessable slug, never listable (spec §11).

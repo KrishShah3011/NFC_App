@@ -64,6 +64,15 @@ test('profile validation: slug format, ownerUid, required name, sizes, no extra 
   await assertFails(setDoc(doc(db(null), 'profiles', SLUG), profile('alice')));
 });
 
+test('profile links: photo only from Firebase Storage, website only http(s) or bare domain', async () => {
+  await assertFails(setDoc(doc(db('alice'), 'profiles', SLUG), profile('alice', { photoUrl: 'https://evil.example/pixel.gif' })));
+  await assertFails(setDoc(doc(db('alice'), 'profiles', SLUG), profile('alice', { website: 'javascript:alert(1)' })));
+  await assertSucceeds(setDoc(doc(db('alice'), 'profiles', SLUG), profile('alice', { website: 'acme.in' })));
+  await assertSucceeds(
+    setDoc(doc(db('alice'), 'profiles', SLUG), profile('alice', { website: 'https://acme.in', photoUrl: 'https://firebasestorage.googleapis.com/v0/b/x/o/p.jpg' })),
+  );
+});
+
 test('users/{uid} subtree is private to its owner', async () => {
   await assertSucceeds(setDoc(doc(db('alice'), 'users', 'alice'), { profileSlug: SLUG, consentAt: 1 }));
   await assertSucceeds(setDoc(doc(db('alice'), 'users', 'alice', 'cards', 'c1'), { name: 'X' }));

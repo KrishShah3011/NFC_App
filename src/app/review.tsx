@@ -1,4 +1,5 @@
 import TextRecognition from '@react-native-ml-kit/text-recognition';
+import { Paths } from 'expo-file-system';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Image } from 'react-native';
@@ -12,7 +13,11 @@ import { emptyFields, type Fields } from '@/lib/types';
 import { queueCardImage } from '@/lib/uploads';
 
 export default function Review() {
-  const { uri, id } = useLocalSearchParams<{ uri?: string; id?: string }>();
+  const params = useLocalSearchParams<{ uri?: string; id?: string }>();
+  const id = params.id;
+  // Any deep link can reach this route; only accept photos our camera/picker wrote to the app cache,
+  // never arbitrary files (e.g. nfcapp://review?uri=file:///…/local.json).
+  const uri = params.uri?.startsWith(Paths.cache.uri) ? params.uri : undefined;
   const { cards, events } = useData();
   const existing = id ? cards.find((c) => c.id === id) : undefined;
   const [f, setF] = useState<Fields>(existing ? pickFields(existing) : emptyFields());

@@ -40,7 +40,7 @@
     const el = document.getElementById('app');
     const slug = (location.pathname.match(/^\/p\/([A-Za-z0-9]{10})\/?$/) || [])[1];
     const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-    const safeUrl = (u) => (/^https?:\/\//i.test(u) ? u : `https://${u}`);
+    const safeUrl = (u) => (/^https?:\/\//i.test(u) ? u : /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(u) ? `https://${u}` : '');
     const gone = () => { el.innerHTML = '<h1>This card is no longer shared.</h1>'; };
 
     async function main() {
@@ -60,7 +60,8 @@
 
     function render(p, log) {
       const store = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? APP_STORE_URL : PLAY_STORE_URL;
-      const photo = /^https:\/\//.test(p.photoUrl || '') ? `<img class="photo" src="${h(p.photoUrl)}" alt="">` : '';
+      // Photos only from our Storage: no third-party tracking pixels.
+      const photo = /^https:\/\/firebasestorage\.googleapis\.com\//.test(p.photoUrl || '') ? `<img class="photo" src="${h(p.photoUrl)}" alt="">` : '';
       el.innerHTML = `
         ${photo}
         <h1>${h(p.name)}</h1>
@@ -68,7 +69,7 @@
         <ul>
           ${(p.phones || []).map((x) => `<li><a href="tel:${h(x)}">${h(x)}</a></li>`).join('')}
           ${(p.emails || []).map((x) => `<li><a href="mailto:${h(x)}">${h(x)}</a></li>`).join('')}
-          ${p.website ? `<li><a href="${h(safeUrl(p.website))}" rel="noopener nofollow">${h(p.website)}</a></li>` : ''}
+          ${safeUrl(p.website || '') ? `<li><a href="${h(safeUrl(p.website))}" rel="noopener nofollow">${h(p.website)}</a></li>` : ''}
           ${p.address ? `<li>${h(p.address)}</li>` : ''}
         </ul>
         <button id="save" type="button">Save contact</button>

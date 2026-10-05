@@ -14,6 +14,18 @@ export type NewCard = Fields & {
   photoUrl?: string;
 };
 
+// The in-app scanner vouches for the very next /p/{slug} navigation; links from anywhere else
+// (web pages, other apps, NFC tags, the system camera) don't carry this, so they ask for one tap.
+let trusted: { slug: string; at: number } | null = null;
+export const trustScan = (slug: string) => {
+  trusted = { slug, at: Date.now() };
+};
+export function consumeTrustedScan(slug: string): boolean {
+  const ok = !!trusted && trusted.slug === slug && Date.now() - trusted.at < 5000;
+  trusted = null;
+  return ok;
+}
+
 /** Saves instantly with time + active event; place and phone write-through follow in the background (spec §7.3). */
 export function captureCard(
   base: NewCard,

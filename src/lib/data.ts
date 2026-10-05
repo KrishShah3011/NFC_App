@@ -102,7 +102,38 @@ export function watchUserDoc(cb: (d: { profileSlug?: string; consentAt?: number 
 }
 
 export function watchProfile(slug: string, cb: (p: Profile | null) => void) {
-  return onSnapshot(doc(db, 'profiles', slug), (s) => cb(s.exists() ? (s.data() as Profile) : null));
+  return onSnapshot(doc(db, 'profiles', slug), (s) => cb(s.exists() ? sanitizeProfile(s.data()) : null));
+}
+
+const STORAGE_URL = /^https:\/\/firebasestorage\.googleapis\.com\//;
+const str = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
+const strs = (v: unknown, max: number) =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 5).map((x) => x.slice(0, max)) : [];
+
+/** Profiles are written by other users: keep only well-typed, bounded fields; photos only from our
+ *  Storage (no tracking pixels on third-party hosts); websites only http(s). null = unusable. */
+export function sanitizeProfile(raw: unknown): Profile | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const name = str(r.name, 100);
+  if (!name.trim()) return null;
+  const site = str(r.website, 200).trim();
+  const photo = str(r.photoUrl, 1000);
+  const so = (r.socials && typeof r.socials === 'object' ? r.socials : {}) as Record<string, unknown>;
+  const social = (k: string) => str(so[k], 200) || undefined;
+  return {
+    ownerUid: str(r.ownerUid, 128),
+    name,
+    title: str(r.title, 100),
+    company: str(r.company, 100),
+    phones: strs(r.phones, 30).filter((p) => /^[\d+\-() ]+$/.test(p)),
+    emails: strs(r.emails, 254).filter((e) => /^[^\s@]+@[^\s@]+$/.test(e)),
+    website: /^https?:\/\//i.test(site) ? site : /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(site) ? `https://${site}` : '',
+    address: str(r.address, 300),
+    socials: { linkedin: social('linkedin'), x: social('x'), instagram: social('instagram'), whatsapp: social('whatsapp') },
+    photoUrl: STORAGE_URL.test(photo) ? photo : '',
+    updatedAt: typeof r.updatedAt === 'number' ? r.updatedAt : 0,
+  };
 }
 
 export function recordConsent() {
@@ -126,7 +157,7 @@ export async function fetchProfile(slug: string, timeoutMs = 3000): Promise<Prof
     getDoc(doc(db, 'profiles', slug)),
     new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs)),
   ]);
-  return snap.exists() ? (snap.data() as Profile) : null;
+  return snap.exists() ? sanitizeProfile(snap.data()) : null;
 }
 
 /** Live update + pending resolution for one card received from an app user (spec §7.9).
