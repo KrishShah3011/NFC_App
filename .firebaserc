@@ -1,0 +1,1 @@
+{ "projects": { "default": "nfc-app-dev", "dev": "nfc-app-dev", "prod": "nfc-app-prod" } }

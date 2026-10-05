@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function str(v, max) { return v is string && v.size() <= max; }
+    function validProfile(d) {
+      return d.keys().hasOnly(['ownerUid', 'name', 'title', 'company', 'phones', 'emails', 'website', 'address', 'socials', 'photoUrl', 'updatedAt'])
+        && d.ownerUid == request.auth.uid
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 100
+        && str(d.title, 100) && str(d.company, 100) && str(d.website, 200) && str(d.address, 300) && str(d.photoUrl, 1000)
+        && d.phones is list && d.phones.size() <= 5
+        && d.emails is list && d.emails.size() <= 5
+        && d.socials is map && d.socials.size() <= 4
+        && d.updatedAt is number;
+    }
+
+    // Public card: fetchable by its unguessable slug, never listable (spec §11).
+    match /profiles/{slug} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn() && slug.matches('^[A-Za-z0-9]{10}$') && validProfile(request.resource.data);
+      allow update: if signedIn() && resource.data.ownerUid == request.auth.uid && validProfile(request.resource.data);
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // Everything a user received: private. {document=**} also matches users/{uid} itself.
+    match /users/{uid}/{document=**} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+  }
+}
